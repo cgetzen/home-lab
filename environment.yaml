@@ -1,0 +1,72 @@
+---
+- name: "base environment"
+  hosts: localhost
+  connection: local
+  tasks:
+  - name: "packages"
+    apt:
+      name:
+      - neovim
+        #      - docker
+        # - docker.io
+        # - docker-compose
+      - tmux
+      - openssh-server
+      - nfs-common
+      - sqlite3
+      - python3.9-venv
+      state: present
+  - name: "packages"
+    apt:
+      name:
+      - cockpit
+      state: present
+  - name: "groups"
+    ansible.builtin.group:
+      name: docker
+      state: present
+  - name: "group users"
+    user:
+      name: charlie
+      groups: docker
+      append: yes
+  - name: "systemd"
+    ansible.builtin.systemd:
+      name: ssh
+      state: started
+      enabled: yes
+  - name: "fstab"
+    ansible.posix.mount:
+      src: nas:/volume1/media
+      path: /home/charlie/data/media
+      fstype: nfs
+      opts: rsize=32768,wsize=32768,rw,sync,intr
+      boot: no
+      state: mounted
+  - name: "fstab"
+    ansible.posix.mount:
+      src: nas:/volume2/media2
+      path: /home/charlie/data/media2
+      fstype: nfs
+      opts: rsize=32768,wsize=32768,rw,sync,intr
+      boot: no
+      state: mounted
+  - name: "docker GPG key"
+    ansible.builtin.apt_key:
+      url: https://download.docker.com/linux/ubuntu/gpg
+      keyring: /usr/share/keyrings/docker-archive-keyring.gpg
+  - name: Distribution
+    command: lsb_release -sc
+    register: distribution
+  - name: Architecture
+    command: dpkg --print-architecture
+    register: architecture
+  - name: "docker APT repo"
+    ansible.builtin.apt_repository:
+      repo: deb [arch={{ architecture.stdout }} signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu {{ distribution.stdout }} stable
+  - name: "docker"
+    apt:
+      name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io

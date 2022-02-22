@@ -1,0 +1,160 @@
+version: "3.7"
+services:
+  router:
+    image: envoyproxy/envoy:v1.19.1
+    container_name: envoy
+    ports:
+    - 80:80   # private-http
+    - 81:81   # public-http
+    - 443:443 # public-https
+    - 9901:9901
+    volumes:
+    - ./envoy.yaml:/etc/envoy/envoy.yaml
+    - ./certs:/certs
+  plex:
+    image: linuxserver/plex:latest
+    container_name: plex
+    ports:
+    - 3005:3005   # Plex Companion
+    - 8324:8324   # Roku via Plex Companion
+    - 32400:32400 # UI
+    - 1900:1900/udp   # Plex DLNA Server
+    - 32410:32410/udp # Network Discovery
+    - 32412:32412/udp
+    - 32413:32413/udp
+    - 32414:32414/udp
+    volumes:
+    - /home/charlie/config/plex:/config
+    - /home/charlie/data/media/tv:/data/tvshows
+    - /home/charlie/data/media/movies:/data/movies
+    - /home/charlie/data/media/books:/data/books
+    - /home/charlie/data/plex/transcode:/transcode
+    environment:
+    - VERSION=docker
+    # - PLEX_CLAIM=claim-red-act-ed
+    - PUID=1000
+    - GUID=1000
+  readarr:
+    image: linuxserver/readarr:nightly-version-0.1.0.968
+    container_name: readarr
+    ports:
+    - 8787:8787
+    volumes:
+    - /home/charlie/config/readarr:/config
+    - /home/charlie/data/media/books:/books
+    - /home/charlie/data/qbittorrent/downloads:/downloads
+    environment:
+    - PUID=1000
+    - GUID=1000
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    volumes:
+    - /home/charlie/config/sonarr:/config
+    - /home/charlie/data/media/tv:/tv
+    - /home/charlie/data/qbittorrent/downloads:/downloads
+    environment:
+    - PUID=1000
+    - GUID=1000
+    ports:
+    - 8989:8989
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://${LOKI_CRED:?err}@logs-prod3.grafana.net/api/prom/push"
+        loki-retries: "5"
+        loki-batch-size: "10"
+        loki-pipeline-stages: |
+          - replace:
+              expression: 'X-Plex-Token=(\w+)'
+              replace: '******'
+          - regex:
+              expression: '\[(?P<level>\w+)\]'
+          - labels:
+              level:
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    volumes:
+    - /home/charlie/config/radarr:/config
+    - /home/charlie/data/media/movies:/movies
+    - /home/charlie/data/qbittorrent/downloads:/downloads
+    environment:
+    - PUID=1000
+    - GUID=1000
+    ports:
+    - 7878:7878
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://${LOKI_CRED:?err}@logs-prod3.grafana.net/api/prom/push"
+        loki-retries: "5"
+        loki-batch-size: "10"
+        loki-pipeline-stages: |
+          - replace:
+              expression: 'X-Plex-Token=(\w+)'
+              replace: '******'
+          - regex:
+              expression: '\[(?P<level>\w+)\]'
+          - labels:
+              level:
+  ombi:
+    image: linuxserver/ombi:4.11.8-development # latest
+    container_name: ombi
+    volumes:
+    - /home/charlie/config/ombi:/config
+    ports:
+    - 3579:3579
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://${LOKI_CRED:?err}@logs-prod3.grafana.net/api/prom/push"
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    # network_mode: "service:vpn"
+    ports:
+            - 8080:8080
+            - 6881:6881
+            - 6881:6881/udp
+    volumes:
+    - /home/charlie/data/qbittorrent/downloads:/downloads
+    - /home/charlie/config/qbittorrent:/config
+    environment:
+    - WEBUI_PORT=8080
+    - PUID=1000
+    - GUID=1000
+  jackett:
+    image: linuxserver/jackett:latest
+    container_name: jackett
+    ports:
+    - 9117:9117
+    volumes:
+    - /home/charlie/config/jackett:/config
+    - /home/charlie/data/jackett/downloads:/downloads
+    environment:
+    - PUID=1000
+    - GUID=1000
+  vpn:
+    image: thrnz/docker-wireguard-pia:latest
+    container_name: vpn
+    environment:
+    - LOC=us_south_west
+    - USER=${PIA_USER:?err}
+    - PASS=${PIA_PASS:?err}
+    cap_add:
+    - net_admin
+      # ports:
+      #- 8080:8080     # qbittorrent Web UI
+      #- 6881:6881     # qbittorrent
+      #- 6881:6881/udp # qbittorrent
+  tautulli:
+    image: ghcr.io/tautulli/tautulli:latest
+    container_name: tautulli
+    ports:
+    - 8181:8181
+    volumes:
+    - /home/charlie/config/tautulli:/config
+    environment:
+    - PUID=1000
+    - GUID=1000
