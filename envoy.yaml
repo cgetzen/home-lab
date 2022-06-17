@@ -40,7 +40,7 @@ static_resources:
             name: local_route
             virtual_hosts:
             - name: ombi
-              domains: ["ombi.charlie-cloud.com:10000", "ombi.charlie-cloud.com"]
+              domains: ["ombi.charlie-cloud.com", "ombi.*"]
               routes:
               - route:
                   cluster: ombi
@@ -73,35 +73,55 @@ static_resources:
             name: local_route
             virtual_hosts:
             - name: plex
-              domains: ["plex.charlie-cloud.com"]
+              domains: ["plex.charlie-cloud.com", "plex.*"]
               routes:
               - route:
                   cluster: plex
                   timeout: 0s
                 match: { prefix: "/" }
             - name: sonarr
-              domains: ["sonarr.charlie-cloud.com"]
+              domains: ["sonarr.charlie-cloud.com", "sonarr.*"]
               routes:
               - route:
                   cluster: sonarr
                   timeout: 0s
                 match: { prefix: "/" }
             - name: radarr
-              domains: ["radarr.charlie-cloud.com"]
+              domains: ["radarr.charlie-cloud.com", "radarr.*"]
               routes:
               - route:
                   cluster: radarr
                   timeout: 0s
                 match: { prefix: "/" }
             - name: qbittorrent
-              domains: ["qbittorrent.charlie-cloud.com"]
+              domains: ["qbittorrent.charlie-cloud.com", "qbittorrent.*"]
               routes:
               - route: { cluster: qbittorrent }
                 match: { prefix: "/" }
             - name: ombi
-              domains: ["ombi.charlie-cloud.com"]
+              domains: ["ombi.charlie-cloud.com", "ombi.*"]
               routes:
               - route: { cluster: ombi }
+                match: { prefix: "/" }
+            - name: tautulli
+              domains: ["tautulli.charlie-cloud.com", "tautulli.*"]
+              routes:
+              - route: { cluster: tautulli }
+                match: { prefix: "/" }
+            - name: calendar
+              domains: ["calendar.charlie-cloud.com", "calendar.*"]
+              routes:
+              - route: { cluster: organizr }
+                match: { prefix: "/" }
+            - name: organizr
+              domains: ["organizr.charlie-cloud.com", "organizr.*"]
+              routes:
+              - route: { cluster: organizr }
+                match: { prefix: "/" }
+            - name: bazarr
+              domains: ["bazarr.*"]
+              routes:
+              - route: { cluster: bazarr }
                 match: { prefix: "/" }
           http_filters:
           - name: envoy.filters.http.router
@@ -178,3 +198,39 @@ static_resources:
               socket_address:
                 address: ombi
                 port_value: 3579
+  - name: tautulli
+    type: LOGICAL_DNS
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: tautulli
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: tautulli
+                port_value: 8181
+  - name: organizr
+    type: LOGICAL_DNS
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: organizr
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: organizr
+                port_value: 80
+  - name: bazarr
+    type: LOGICAL_DNS
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: bazarr
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: bazarr
+                port_value: 6767
