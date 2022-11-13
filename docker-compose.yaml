@@ -1,11 +1,42 @@
 version: "3.7"
 services:
+  plextraktsync:
+    image: ghcr.io/taxel/plextraktsync:latest
+    container_name: plextraktsync
+    volumes:
+      - /home/charlie/config/plextraktsync:/config
+  plex-meta-manager:
+    image: lscr.io/linuxserver/plex-meta-manager:latest
+    container_name: plex-meta-manager
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - PMM_CONFIG=/config/config.yml
+    volumes:
+      - /home/charlie/config/pmm:/config
+  jellyfin:
+    image: lscr.io/linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - JELLYFIN_PublishedServerUrl=jellyfin.charlie-cloud.com #optional
+    volumes:
+      - /home/charlie/config/jellyfin:/config
+      - /home/charlie/data/media/tv:/data/tvshows
+      - /home/charlie/data/media/movies:/data/movies
+    ports:
+      - 8096:8096
+      - 8920:8920 #optional
+      - 7359:7359/udp #optional
+      - 1901:1900/udp #optional
   router:
     image: envoyproxy/envoy:v1.19.1
     container_name: envoy
     ports:
-    - 80:80   # private-http
-    - 81:81   # public-http
+    - 192.168.86.36:80:80   # private-http
+    - 8888:79
+      #- 136.49.216.161:80:81   # public-http
     - 443:443 # public-https
     - 9901:9901
     volumes:
@@ -36,7 +67,7 @@ services:
     - PUID=1000
     - GUID=1000
   readarr:
-    image: linuxserver/readarr:nightly-version-0.1.0.968
+    image: linuxserver/readarr:0.1.1-nightly
     container_name: readarr
     ports:
     - 8787:8787
@@ -47,6 +78,12 @@ services:
     environment:
     - PUID=1000
     - GUID=1000
+  auto-m4b:
+    image: seanap/auto-m4b
+    container_name: auto-m4b
+    volumes:
+      - /home/charlie/config/auto-m4b:/config
+      - /home/charlie/data/media/books:/temp
   sonarr:
     image: linuxserver/sonarr:latest
     container_name: sonarr
@@ -111,6 +148,17 @@ services:
     - GUID=1000
     ports:
     - 6767:6767
+  overseerr:
+    image: lscr.io/linuxserver/overseerr:latest
+    container_name: overseerr
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/Chicago
+    volumes:
+      - /home/charlie/config/overseerr:/config
+    ports:
+      - 5055:5055
   ombi:
     image: linuxserver/ombi:4.15.4-development #4.14.1-development # latest
     container_name: ombi
@@ -123,7 +171,7 @@ services:
       options:
         loki-url: "https://${LOKI_CRED:?err}@logs-prod3.grafana.net/api/prom/push"
   qbittorrent:
-    image: linuxserver/qbittorrent:latest
+    image: dyonr/qbittorrentvpn # linuxserver/qbittorrent:latest
     container_name: qbittorrent
     # network_mode: "service:vpn"
     ports:
@@ -137,6 +185,13 @@ services:
     - WEBUI_PORT=8080
     - PUID=1000
     - GUID=1000
+    # For VPN
+    - LAN_NETWORK=192.168.0.0/24
+    env_file:
+    - vpn.env
+    privileged: true
+    devices:
+    - /dev/net/tun
   jackett:
     image: linuxserver/jackett:latest
     container_name: jackett
@@ -145,6 +200,17 @@ services:
     volumes:
     - /home/charlie/config/jackett:/config
     - /home/charlie/data/jackett/downloads:/downloads
+    environment:
+    - PUID=1000
+    - GUID=1000
+  jackett-private:
+    image: linuxserver/jackett:latest
+    container_name: jackett-private
+    ports:
+    - 9118:9117
+    volumes:
+    - /home/charlie/config/jackett-private:/configs
+    - /home/charlie/data/jackett-private/downloads:/downloads
     environment:
     - PUID=1000
     - GUID=1000
@@ -181,6 +247,20 @@ services:
     environment:
     - PUID=1000
     - GUID=1000
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr
+    container_name: recyclarr
+    init: true
+    user: 1000:1000
+    volumes:
+      - /home/charlie/config/recyclarr:/config
+    environment:
+      - TZ=America/Santiago
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    ports:
+    - 8191:8191
   homeassistant:
     container_name: homeassistant
     image: "ghcr.io/home-assistant/home-assistant:stable"
