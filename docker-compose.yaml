@@ -35,6 +35,7 @@ services:
     container_name: envoy
     ports:
     - 192.168.86.36:80:80   # private-http
+    - 100.71.6.88:80:80
     - 8888:79
       #- 136.49.216.161:80:81   # public-http
     - 443:443 # public-https
@@ -45,6 +46,8 @@ services:
   plex:
     image: linuxserver/plex:latest
     container_name: plex
+    labels:
+    - "envoy.port=32400"
     ports:
     - 3005:3005   # Plex Companion
     - 8324:8324   # Roku via Plex Companion
@@ -247,20 +250,56 @@ services:
     environment:
     - PUID=1000
     - GUID=1000
-  recyclarr:
-    image: ghcr.io/recyclarr/recyclarr
-    container_name: recyclarr
-    init: true
-    user: 1000:1000
-    volumes:
-      - /home/charlie/config/recyclarr:/config
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:develop
+    container_name: prowlarr
     environment:
-      - TZ=America/Santiago
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+    volumes:
+      - /home/charlie/config/prowlarr:/config
+    ports:
+      - 9696:9696
+#recyclarr:
+#    image: ghcr.io/recyclarr/recyclarr
+#    container_name: recyclarr
+#    init: true
+#    user: 1000:1000
+#    volumes:
+#      - /home/charlie/config/recyclarr:/config
+#    environment:
+#      - TZ=America/Santiago
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
+    environment:
+    - CAPTCHA_SOLVER=hcaptcha-solver
+    - TZ=America/Santiago
     ports:
     - 8191:8191
+  tdarr:
+    image: ghcr.io/haveagitgat/tdarr:latest
+    container_name: tdarr
+    ports:
+      - 8265:8265 # webUI port
+      - 8266:8266 # server port
+      - 8267:8267 # Internal node port
+      - 8268:8268 # Example extra node port
+    environment:
+      - TZ=America/Santiago
+      - UMASK_SET=002
+      - serverIP=0.0.0.0
+      - serverPort=8266
+      - webUIPort=8265
+      - internalNode=true
+      - nodeID=MyInternalNode
+    volumes:
+      - /tmp/tdarr/server:/app/server
+      - /home/charlie/config/tdarr/configs:/app/configs
+      - /tmp/tdarr/logs:/app/logs
+      - /home/charlie/data/media:/media
+      - /tmp/transcode_cache:/temp
   homeassistant:
     container_name: homeassistant
     image: "ghcr.io/home-assistant/home-assistant:stable"

@@ -18,7 +18,7 @@ static_resources:
             name: local_route
             virtual_hosts:
             - name: ombi
-              domains: ["ombi.charlie-cloud.com", "overseerr.charlie-cloud.com"]
+              domains: ["ombi.charlie-cloud.com", "overseerr.charlie-cloud.com", "download.charlie-cloud.com"]
               routes:
               - route:
                   cluster: overseerr
@@ -115,6 +115,13 @@ static_resources:
                   cluster: radarr
                   timeout: 0s
                 match: { prefix: "/" }
+            - name: prowlarr
+              domains: ["prowlarr.charlie-cloud.com", "prowlarr.*"]
+              routes:
+              - route:
+                  cluster: prowlarr
+                  timeout: 0s
+                match: { prefix: "/" }
             - name: jackett
               domains: ["jackett.charlie-cloud.com", "jackett.*"]
               routes:
@@ -159,7 +166,9 @@ static_resources:
             - name: bazarr
               domains: ["bazarr.*"]
               routes:
-              - route: { cluster: bazarr }
+              - route:
+                  cluster: bazarr
+                  timeout: 0s
                 match: { prefix: "/" }
           http_filters:
           - name: envoy.filters.http.router
@@ -320,6 +329,18 @@ static_resources:
               socket_address:
                 address: overseerr
                 port_value: 5055
+  - name: prowlarr
+    type: LOGICAL_DNS
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: prowlarr
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: prowlarr
+                port_value: 9696
   - name: envoy_80
     type: LOGICAL_DNS
     lb_policy: ROUND_ROBIN
