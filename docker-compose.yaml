@@ -1,5 +1,16 @@
 version: "3.7"
 services:
+  nextcloud:
+    image: lscr.io/linuxserver/nextcloud:latest
+    container_name: nextcloud
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - /home/charlie/config/nextcloud:/config
+      - /home/charlie/data/nextcloud:/data
+    ports:
+      - 8000:443
   plextraktsync:
     image: ghcr.io/taxel/plextraktsync:latest
     container_name: plextraktsync
@@ -14,6 +25,15 @@ services:
       - PMM_CONFIG=/config/config.yml
     volumes:
       - /home/charlie/config/pmm:/config
+  plex-image-cleanup:
+    image: meisnate12/plex-image-cleanup
+    container_name: plex-image-cleanup
+    env_file:
+      - /home/charlie/config/plex-image-cleanup/.env
+    volumes:
+      - /home/charlie/config/plex-image-cleanup:/config
+      - /home/charlie/config/plex/Library/Application Support/Plex Media Server:/plex
+    restart: unless-stopped
   jellyfin:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
@@ -34,10 +54,12 @@ services:
     image: envoyproxy/envoy:v1.19.1
     container_name: envoy
     ports:
-    - 192.168.86.36:80:80   # private-http
+    - 192.168.86.37:80:80    # private-http
+      # - 192.168.86.113:80:80   # private-http - wifi
     - 100.71.6.88:80:80
     - 8888:79
-      #- 136.49.216.161:80:81   # public-http
+      # - 136.49.216.161:80:81   # public-http
+    - 81:81 # public-http
     - 443:443 # public-https
     - 9901:9901
     volumes:
@@ -60,7 +82,9 @@ services:
     - 33400:33400 # WebTools
     volumes:
     - /home/charlie/config/plex:/config
+    - /home/charlie/data/media2/plex-media-symlink:/home/charlie/data/media2/plex-media-symlink
     - /home/charlie/data/media/tv:/data/tvshows
+    - /home/charlie/data/media/anime:/data/anime
     - /home/charlie/data/media/movies:/data/movies
     - /home/charlie/data/media/books:/data/books
     - /home/charlie/data/plex/transcode:/transcode
@@ -68,7 +92,7 @@ services:
     - VERSION=docker
     # - PLEX_CLAIM=claim-red-act-ed
     - PUID=1000
-    - GUID=1000
+    - PGID=1000
   readarr:
     image: linuxserver/readarr:0.1.1-nightly
     container_name: readarr
@@ -77,10 +101,10 @@ services:
     volumes:
     - /home/charlie/config/readarr:/config
     - /home/charlie/data/media/books:/books
-    - /home/charlie/data/qbittorrent/downloads:/downloads
+    - /home/charlie/data/media/qbittorrent/downloads:/downloads
     environment:
     - PUID=1000
-    - GUID=1000
+    - PGID=1000
   auto-m4b:
     image: seanap/auto-m4b
     container_name: auto-m4b
@@ -93,10 +117,11 @@ services:
     volumes:
     - /home/charlie/config/sonarr:/config
     - /home/charlie/data/media/tv:/tv
-    - /home/charlie/data/qbittorrent/downloads:/downloads
+    - /home/charlie/data/media/anime:/anime
+    - /home/charlie/data/media/qbittorrent/downloads:/downloads
     environment:
     - PUID=1000
-    - GUID=1000
+    - PGID=1000
     ports:
     - 8989:8989
     logging:
@@ -114,15 +139,15 @@ services:
           - labels:
               level:
   radarr:
-    image: linuxserver/radarr:4.2.0-nightly # For plex watchlist integration. 
+    image: linuxserver/radarr:latest # :4.2.0-nightly # For plex watchlist integration. 
     container_name: radarr
     volumes:
     - /home/charlie/config/radarr:/config
     - /home/charlie/data/media/movies:/movies
-    - /home/charlie/data/qbittorrent/downloads:/downloads
+    - /home/charlie/data/media/qbittorrent/downloads:/downloads
     environment:
     - PUID=1000
-    - GUID=1000
+    - PGID=1000
     ports:
     - 7878:7878
     logging:
@@ -148,7 +173,7 @@ services:
     - /home/charlie/data/media/tv:/tv
     environment:
     - PUID=1000
-    - GUID=1000
+    - PGID=1000
     ports:
     - 6767:6767
   overseerr:
@@ -162,32 +187,21 @@ services:
       - /home/charlie/config/overseerr:/config
     ports:
       - 5055:5055
-  ombi:
-    image: linuxserver/ombi:4.15.4-development #4.14.1-development # latest
-    container_name: ombi
-    volumes:
-    - /home/charlie/config/ombi:/config
-    ports:
-    - 3579:3579
-    logging:
-      driver: loki
-      options:
-        loki-url: "https://${LOKI_CRED:?err}@logs-prod3.grafana.net/api/prom/push"
   qbittorrent:
     image: dyonr/qbittorrentvpn # linuxserver/qbittorrent:latest
     container_name: qbittorrent
     # network_mode: "service:vpn"
     ports:
-            - 8080:8080
-            - 6881:6881
-            - 6881:6881/udp
+    - 8080:8080
+    - 6881:6881
+    - 6881:6881/udp
     volumes:
-    - /home/charlie/data/qbittorrent/downloads:/downloads
+    - /home/charlie/data/media/qbittorrent/downloads:/downloads
     - /home/charlie/config/qbittorrent:/config
     environment:
     - WEBUI_PORT=8080
     - PUID=1000
-    - GUID=1000
+    - PGID=1000
     # For VPN
     - LAN_NETWORK=192.168.0.0/24
     env_file:
@@ -195,32 +209,12 @@ services:
     privileged: true
     devices:
     - /dev/net/tun
-  jackett:
-    image: linuxserver/jackett:latest
-    container_name: jackett
-    ports:
-    - 9117:9117
-    volumes:
-    - /home/charlie/config/jackett:/config
-    - /home/charlie/data/jackett/downloads:/downloads
-    environment:
-    - PUID=1000
-    - GUID=1000
-  jackett-private:
-    image: linuxserver/jackett:latest
-    container_name: jackett-private
-    ports:
-    - 9118:9117
-    volumes:
-    - /home/charlie/config/jackett-private:/configs
-    - /home/charlie/data/jackett-private/downloads:/downloads
-    environment:
-    - PUID=1000
-    - GUID=1000
+    restart: on-failure
   vpn:
     image: thrnz/docker-wireguard-pia:latest
     container_name: vpn
     environment:
+    - FIREWALL=0
     - LOC=us_south_west
     - USER=${PIA_USER:?err}
     - PASS=${PIA_PASS:?err}
@@ -239,7 +233,7 @@ services:
     - /home/charlie/config/tautulli:/config
     environment:
     - PUID=1000
-    - GUID=1000
+    - PGID=1000
   organizr:
     image: organizr/organizr:latest
     container_name: organizr
@@ -249,7 +243,7 @@ services:
     - /home/charlie/config/organizr:/config
     environment:
     - PUID=1000
-    - GUID=1000
+    - PGID=1000
   prowlarr:
     image: lscr.io/linuxserver/prowlarr:develop
     container_name: prowlarr
@@ -261,15 +255,16 @@ services:
       - /home/charlie/config/prowlarr:/config
     ports:
       - 9696:9696
-#recyclarr:
-#    image: ghcr.io/recyclarr/recyclarr
-#    container_name: recyclarr
-#    init: true
-#    user: 1000:1000
-#    volumes:
-#      - /home/charlie/config/recyclarr:/config
-#    environment:
-#      - TZ=America/Santiago
+  wrapperr:
+    image: aunefyren/wrapperr:latest
+    container_name: wrapperr
+    ports:
+    - 8282:8282
+    environment:
+    - PUID=1000
+    - GUID=1000
+    volumes:
+    - /home/charlie/config/wrapperr:/app/config
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
     container_name: flaresolverr
@@ -278,43 +273,68 @@ services:
     - TZ=America/Santiago
     ports:
     - 8191:8191
-  tdarr:
-    image: ghcr.io/haveagitgat/tdarr:latest
-    container_name: tdarr
-    ports:
-      - 8265:8265 # webUI port
-      - 8266:8266 # server port
-      - 8267:8267 # Internal node port
-      - 8268:8268 # Example extra node port
+#  tdarr:
+#    image: ghcr.io/haveagitgat/tdarr:latest
+#    container_name: tdarr
+#    ports:
+#      - 8265:8265 # webUI port
+#      - 8266:8266 # server port
+#      - 8267:8267 # Internal node port
+#      - 8268:8268 # Example extra node port
+#    environment:
+#      - TZ=America/Santiago
+#      - UMASK_SET=002
+#      - serverIP=0.0.0.0
+#      - serverPort=8266
+#      - webUIPort=8265
+#      - internalNode=true
+#      - nodeID=MyInternalNode
+#    volumes:
+#      - /tmp/tdarr/server:/app/server
+#      - /home/charlie/config/tdarr/configs:/app/configs
+#      - /tmp/tdarr/logs:/app/logs
+#      - /home/charlie/data/media:/media
+#      - /tmp/transcode_cache:/temp
+        #  homeassistant:
+        #container_name: homeassistant
+        #image: "ghcr.io/home-assistant/home-assistant:stable"
+        # volumes:
+        #- /home/charlie/config/homeassistant:/config
+        #- /etc/localtime:/etc/localtime:ro
+        #privileged: true
+        #network_mode: host
+  datadog:
+    image: gcr.io/datadoghq/agent:7
+    container_name: datadog
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    - /proc/:/host/proc/:ro
+    - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+    - /etc/os-release:/host/etc/os-release:ro
+    env_file:
+    - datadog.env
     environment:
-      - TZ=America/Santiago
-      - UMASK_SET=002
-      - serverIP=0.0.0.0
-      - serverPort=8266
-      - webUIPort=8265
-      - internalNode=true
-      - nodeID=MyInternalNode
-    volumes:
-      - /tmp/tdarr/server:/app/server
-      - /home/charlie/config/tdarr/configs:/app/configs
-      - /tmp/tdarr/logs:/app/logs
-      - /home/charlie/data/media:/media
-      - /tmp/transcode_cache:/temp
-  homeassistant:
-    container_name: homeassistant
-    image: "ghcr.io/home-assistant/home-assistant:stable"
-    volumes:
-    - /home/charlie/config/homeassistant:/config
-    - /etc/localtime:/etc/localtime:ro
-    privileged: true
-    network_mode: host
-  homebridge:
-    container_name: homebridge
-    image: oznu/homebridge:latest
-    volumes:
-    - /home/charlie/config/homebridge:/homebridge
-    environment:
-    - HOMEBRIDGE_CONFIG_UI=1
-    - HOMEBRIDGE_CONFIG_UI_PORT=8581
+    - DD_SITE=us5.datadoghq.com
+    - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
+    - DD_HOSTNAME=pop-os
+    - DD_ENV=main
     ports:
-    - 8581:8581
+    - 8125:8125/udp
+  clipplex:
+    image: clippex:charlie # jonnike/clipplex:latest
+    container_name: clipplex-alpha
+    env_file:
+    - clipplex.env
+    environment:
+          - PYTHONUNBUFFERED=1
+          - PUID=1000
+          - PGID=1000
+          - TZ=America/New_York
+          - PLEX_URL=http://plex:32400
+    volumes: 
+    - /home/charlie/data/media/tv:/data/tvshows
+    - /home/charlie/data/clippex/media2:/app/app/static/media
+    ports:
+    - 9945:5000
+
+

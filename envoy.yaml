@@ -122,6 +122,25 @@ static_resources:
                   cluster: prowlarr
                   timeout: 0s
                 match: { prefix: "/" }
+            - name: jellyfin
+              domains: ["jellyfin.*"]
+              routes:
+              - route:
+                  cluster: jellyfin
+                  timeout: 0s
+                match: { prefix: "/" }
+            - name: tdarr
+              domains: ["tdarr.*"]
+              routes:
+              - route:
+                  cluster: tdarr
+                match: { prefix: "/" }
+            - name: golinks
+              domains: ["golinks.*"]
+              routes:
+              - route:
+                  cluster: golinks
+                match: { prefix: "/" }
             - name: jackett
               domains: ["jackett.charlie-cloud.com", "jackett.*"]
               routes:
@@ -341,6 +360,42 @@ static_resources:
               socket_address:
                 address: prowlarr
                 port_value: 9696
+  - name: jellyfin
+    type: LOGICAL_DNS
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: jellyfin
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: jellyfin
+                port_value: 8096
+  - name: golinks
+    type: LOGICAL_DNS
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: golinks
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: golinks
+                port_value: 8000
+  - name: tdarr
+    type: LOGICAL_DNS
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: tdarr
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: tdarr
+                port_value: 8265
   - name: envoy_80
     type: LOGICAL_DNS
     lb_policy: ROUND_ROBIN
